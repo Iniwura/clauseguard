@@ -1,101 +1,437 @@
-# Sample GenLayer project
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/license/mit/)
-[![Discord](https://dcbadge.vercel.app/api/server/8Jm4v89VAu?compact=true&style=flat)](https://discord.gg/8Jm4v89VAu)
-[![Telegram](https://img.shields.io/badge/Telegram--T.svg?style=social&logo=telegram)](https://t.me/genlayer)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/yeagerai.svg?style=social&label=Follow%20%40GenLayer)](https://x.com/GenLayer)
-[![GitHub star chart](https://img.shields.io/github/stars/yeagerai/genlayer-project-boilerplate?style=social)](https://star-history.com/#yeagerai/genlayer-js)
+# ClauseGuard
 
-## 👀 About
-This project includes the boilerplate code for a GenLayer use case implementation, specifically a football bets game.
+ClauseGuard is a natural-language policy authorization primitive built on GenLayer.
 
-## 📦 What's included
-- Basic requirements to deploy and test your intelligent contracts locally
-- Configuration file template
-<!-- - Test functions to write complete end-to-end tests -->
-- An example of an intelligent contract (Football Bets)
-- Example end-to-end tests for the contract provided
+It lets an owner define a human-readable policy and lets callers submit proposed actions, justification, evidence, and a caller-scoped reference. GenLayer validators independently interpret the policy and proposed action, then reach consensus on one of three outcomes:
 
-## 🛠️ Requirements
-- A running GenLayer Studio (Install from [Docs](https://docs.genlayer.com/developers/intelligent-contracts/tooling-setup#using-the-genlayer-studio) or work with the hosted version of [GenLayer Studio](https://studio.genlayer.com/)). If you are working locally, this repository code does not need to be located in the same directory as the Genlayer Studio.
+- `ALLOW`
+- `DENY`
+- `REVIEW`
 
-## 🚀 Steps to run this example
+Successful decisions are persisted onchain together with the policy version, policy snapshot, action, evidence, submitter, reference, and deterministic commitment.
 
-### 1. Configure environment
-   Rename the `.env.example` file to `.env`, then fill in the values for your configuration. The provided values are the standard values for a tipical GenLayer Studio deployed locally.
+## Why ClauseGuard
 
-### 2. Deploy the contract
-   Deploy the contract from `/contracts/football_bets.py` using the Studio's UI:
-   1. Open the GenLayer Studio interface in your web browser (usually at http://localhost:8080).
-   2. Create a new file in the "Contracts" section and paste the content of `/contracts/football_bets.py` (the content is different than the existing contract from the examples).
-   3. Navigate to the "Run and Debug" section.
-   4. Follow the on-screen instructions to complete the deployment process.
+Traditional smart contracts are excellent at enforcing deterministic conditions such as numeric limits, allowlists, timestamps, and signatures.
 
-### 3. Setup the frontend environment
-  1. All the content of the dApp is located in the `/app` folder.
-  2. Rename the `.env.example` file in the `/app` folder to `.env`.
-  3. Add the deployed contract address to the `/app/.env` under the variable `VITE_CONTRACT_ADDRESS`
+They are much weaker when authorization depends on interpreting natural-language policy.
 
-### 4. Run the frontend Vue app
-   Ensure your GenLayer Studio is running, and execute the following commands in your terminal:
-   ```shell
-   cd app
-   npm install
-   npm run dev
-   ```
-   The terminal should display a link to access your frontend app (usually at http://localhost:5173/).
-   For more information on the code see [GenLayerJS](https://github.com/yeagerai/genlayer-js).
-   
-### 5. Test contracts
-1. Install the Python packages listed in the `requirements.txt` file in a virtual environment.
-2. Make sure your GenLayer Studio is running. Then execute the following command in your terminal:
-   ```shell
-   gltest
-   ```
+ClauseGuard targets rules such as:
 
-## ⚽ How the Football Bets Contract Works
+- Treasury funds may be used for security audits and infrastructure.
+- Payments above a certain threshold require governance approval.
+- Funds may not be used for cryptocurrency speculation.
+- Funds may not be transferred to personal wallets.
+- Ambiguous actions should be escalated for review.
 
-The Football Bets contract allows users to create bets for football matches, resolve those bets, and earn points for correct bets. Here's a breakdown of its main functionalities:
+These policies are understandable to humans but are difficult to encode completely as deterministic smart-contract logic.
 
-1. Creating Bets:
-   - Users can create a bet for a specific football match by providing the game date, team names, and their predicted winner.
-   - The contract checks if the game has already finished and if the user has already made a bet for this match.
+ClauseGuard uses GenLayer consensus to interpret those policies directly.
 
-2. Resolving Bets:
-   - After a match has concluded, users can resolve their bets.
-   - The contract fetches the actual match result from a specified URL.
-   - If the Bet was correct, the user earns a point.
+## How It Works
 
-3. Querying Data:
-   - Users can retrieve all bets.
-   - The contract also allows querying of points, either for all players or for a specific player.
+ClauseGuard has two main flows.
 
-4. Getting Points:
-   - Points are awarded for correct bets.
-   - Users can check their total points or the points of any player.
+### 1. Configure Policy
 
-## 🧪 Tests
+The contract owner sets a natural-language policy with `set_policy(policy)`.
 
-This project includes integration tests that interact with the contract deployed in the Studio. These tests cover the main functionalities of the Football Bets contract:
+Each successful update increments `policy_version`.
 
-1. Creating a bet
-2. Resolving a bet
-3. Querying bets for a player
-4. Querying points for a player
+Example policy:
 
-The tests simulate real-world interactions with the contract, ensuring that it behaves correctly under various scenarios. They use the GenLayer Studio to deploy and interact with the contract, providing a comprehensive check of the contract's functionality in a controlled environment.
+```text
+Treasury funds may be used for security audits, infrastructure, and contributor payments.
+Individual payments above $10000 require explicit governance approval.
+Funds may not be used for cryptocurrency speculation or transfers to personal wallets.
+```
 
-To run the tests, use the `gltest` command as mentioned in the "Steps to run this example" section.
+### 2. Evaluate a Proposed Action
 
+A caller submits:
 
-## 💬 Community
-Connect with the GenLayer community to discuss, collaborate, and share insights:
-- **[Discord Channel](https://discord.gg/8Jm4v89VAu)**: Our primary hub for discussions, support, and announcements.
-- **[Telegram Group](https://t.me/genlayer)**: For more informal chats and quick updates.
+- Proposed action
+- Justification
+- Evidence
+- Caller-scoped reference
 
-Your continuous feedback drives better product development. Please engage with us regularly to test, discuss, and improve GenLayer.
+Example:
 
-## 📖 Documentation
-For detailed information on how to use GenLayerJS SDK, please refer to our [documentation](https://docs.genlayer.com/).
+```text
+Action:
+Pay SecureLabs $5000 for a protocol security audit.
 
-## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Justification:
+The payment is for a security audit permitted by the treasury policy.
+
+Evidence:
+SecureLabs submitted an audit engagement letter for the protocol.
+
+Reference:
+bradbury-allow-002
+```
+
+The contract builds a deterministic prompt from the current policy and action data.
+
+The leader evaluates the request. Validators independently evaluate the same request and compare the verdict.
+
+```python
+gl.vm.run_nondet(
+    leader_fn,
+    validator_fn,
+)
+```
+
+## Verdicts
+
+ClauseGuard accepts only three verdicts.
+
+### ALLOW
+
+The proposed action is clearly authorized by the policy.
+
+### DENY
+
+The proposed action clearly violates the policy or falls outside the allowed scope.
+
+### REVIEW
+
+The policy or submitted information is insufficient to safely determine authorization.
+
+## Strict Consensus Output
+
+ClauseGuard accepts only this exact result schema:
+
+```json
+{
+  "verdict": "ALLOW"
+}
+```
+
+The contract validates:
+
+- Top-level result type
+- Exact result keys
+- Verdict type
+- Allowed verdict values
+
+Unexpected or malformed model output is rejected.
+
+## Policy Versioning
+
+Every policy update increments the policy version.
+
+Each successful authorization decision stores:
+
+- The policy version used
+- A full snapshot of the policy at the time of evaluation
+
+This means historical decisions remain tied to the exact policy that governed them even after the owner updates the active policy.
+
+## Persistent Decisions
+
+Successful evaluations store:
+
+- Decision ID
+- Policy version
+- Policy snapshot
+- Action
+- Justification
+- Evidence
+- Verdict
+- Submitter
+- Reference
+- Commitment
+
+Read methods include:
+
+```text
+get_policy()
+get_decision_count()
+get_decision(decision_id)
+is_reference_used(submitter, reference)
+```
+
+## Caller-Scoped References
+
+Every evaluation includes a caller-supplied reference.
+
+References are unique per submitter.
+
+Example:
+
+```text
+Alice + payment-001 = allowed
+Alice + payment-001 again = rejected
+Bob + payment-001 = allowed
+```
+
+This prevents accidental replay by the same caller without requiring global reference uniqueness.
+
+## Deterministic Commitments
+
+Every successful decision receives a deterministic Keccak-256 commitment.
+
+The commitment binds:
+
+- Submitter
+- Policy version
+- Policy snapshot
+- Action
+- Justification
+- Evidence
+- Reference
+
+Changing any of these inputs changes the commitment.
+
+This provides a deterministic fingerprint for the exact authorization request and policy context.
+
+## Failure Safety
+
+Failed evaluations do not partially mutate contract state.
+
+If an evaluation fails:
+
+- `decision_count` is not incremented.
+- No decision is stored.
+- The caller reference is not consumed.
+
+## Bradbury Deployment
+
+ClauseGuard is deployed on the GenLayer Bradbury testnet.
+
+Contract address:
+
+```text
+0xFf8F7c9aa3cDdcF54a67880F653127C80C37E423
+```
+
+Deployment transaction:
+
+```text
+0xfcd893de2f7d48b8200d511cd90e489b27593973d0a6b1bd3bd3f9bf07944fca
+```
+
+Network:
+
+```text
+GenLayer Bradbury
+```
+
+RPC:
+
+```text
+https://rpc-bradbury.genlayer.com
+```
+
+The deployed contract was verified with:
+
+```text
+ping() -> clauseguard-v1
+```
+
+## Verified Bradbury ALLOW Decision
+
+Reference:
+
+```text
+bradbury-allow-002
+```
+
+Action:
+
+```text
+Pay SecureLabs $5000 for a protocol security audit.
+```
+
+Result:
+
+```text
+ALLOW
+```
+
+Consensus status:
+
+```text
+ACCEPTED
+AGREE
+FINISHED_WITH_RETURN
+```
+
+Transaction:
+
+```text
+0x00262c76490be4e128db56125b42a8a39f4e19a5535204a94c65c97dcd876e7c
+```
+
+## Verified Bradbury DENY Decision
+
+Reference:
+
+```text
+bradbury-deny-003
+```
+
+Action:
+
+```text
+Transfer $50 to a personal wallet.
+```
+
+The active policy explicitly prohibits transfers to personal wallets.
+
+Result:
+
+```text
+DENY
+```
+
+All five validators agreed.
+
+Consensus status:
+
+```text
+ACCEPTED
+AGREE
+FINISHED_WITH_RETURN
+```
+
+Transaction:
+
+```text
+0x9fca2d9cd6dc6813307f57c045e226795b97b1437caeb5e63dab0af679f0ecd9
+```
+
+## Reading From Bradbury
+
+Check the contract:
+
+```bash
+genlayer call \
+  0xFf8F7c9aa3cDdcF54a67880F653127C80C37E423 \
+  ping \
+  --rpc https://rpc-bradbury.genlayer.com
+```
+
+Read the active policy:
+
+```bash
+genlayer call \
+  0xFf8F7c9aa3cDdcF54a67880F653127C80C37E423 \
+  get_policy \
+  --rpc https://rpc-bradbury.genlayer.com
+```
+
+Get the number of successful decisions:
+
+```bash
+genlayer call \
+  0xFf8F7c9aa3cDdcF54a67880F653127C80C37E423 \
+  get_decision_count \
+  --rpc https://rpc-bradbury.genlayer.com
+```
+
+Read decision `0`:
+
+```bash
+genlayer call \
+  0xFf8F7c9aa3cDdcF54a67880F653127C80C37E423 \
+  get_decision \
+  --rpc https://rpc-bradbury.genlayer.com \
+  --args 0
+```
+
+## Tests
+
+ClauseGuard uses `genlayer-test` direct-mode tests.
+
+Run:
+
+```bash
+python3 -m py_compile contracts/clause_guard.py
+gltest test/test_clause_guard.py -v
+```
+
+Current status:
+
+```text
+20 passed
+```
+
+The test suite covers:
+
+- Contract health check
+- Owner-only policy updates
+- Policy version increments
+- ALLOW persistence
+- DENY persistence
+- REVIEW persistence
+- Historical policy snapshots
+- Caller-scoped references
+- Duplicate-reference rejection
+- Same reference usage by different callers
+- Policy-required enforcement
+- Empty-input validation
+- Strict LLM output schema validation
+- Invalid verdict rejection
+- Failed-evaluation storage safety
+- Failed-evaluation reference safety
+- Commitment format and persistence
+- Policy-version-bound commitments
+
+## Repository Structure
+
+```text
+clauseguard/
+├── contracts/
+│   └── clause_guard.py
+├── test/
+│   └── test_clause_guard.py
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
+
+The intelligent contract is located at:
+
+```text
+contracts/clause_guard.py
+```
+
+## Current Scope
+
+ClauseGuard is designed as a reusable authorization primitive.
+
+An integrating application can use ClauseGuard wherever a proposed action needs to be checked against a natural-language policy before proceeding.
+
+Potential integrations include:
+
+- DAO treasury authorization
+- AI-agent action controls
+- Grant spending policies
+- Procurement workflows
+- Compliance gates
+- Operational spending controls
+- Governance execution safeguards
+
+ClauseGuard currently records authorization decisions. It does not automatically execute downstream transfers or protocol actions.
+
+## Status
+
+- Intelligent contract implemented
+- 20 direct-mode tests passing
+- Natural-language policy evaluation implemented
+- ALLOW / DENY / REVIEW verdicts implemented
+- Policy versioning implemented
+- Historical policy snapshots implemented
+- Caller-scoped references implemented
+- Deterministic Keccak-256 commitments implemented
+- Strict output validation implemented
+- Failure-state safety tested
+- Deployed on Bradbury
+- Live ALLOW decision verified
+- Live DENY decision verified with 5/5 validator agreement
+
+## License
+
+MIT
